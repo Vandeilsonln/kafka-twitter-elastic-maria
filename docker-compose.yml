@@ -26,9 +26,9 @@ services:
 
     zookeeper.kafkacourse:
         container_name: zookeeper.kafkacourse
-        image: 'bitnami/zookeeper:latest'
+        image: 'bitnami/zookeeper:3.5.9-debian-10-r13'
         ports:
-            -   "2192:2192"
+            -   "2181:2181"
         environment:
             - ALLOW_ANONYMOUS_LOGIN=yes
 
