@@ -12,9 +12,9 @@ import java.util.concurrent.ExecutionException;
 
 
 @RestController
-@RequestMapping
+@RequestMapping("/producer")
 @Slf4j
-public class FirstController {
+public class ProducerController {
 
     @GetMapping
     public String getHelloWorld() {
