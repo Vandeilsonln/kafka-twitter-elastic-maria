@@ -8,12 +8,14 @@ import java.util.Properties;
 
 public class Producers {
 
-    private static final String bootstrapServers = "localhost:9091";
+    private Producers() {}
+
+    private static final String BOOTSTRAP_SERVER = "localhost:9091";
 
     public static KafkaProducer<String, String> getProducer() {
         Properties properties = new Properties();
 
-        properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVER);
         properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer .class.getName());
         properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 

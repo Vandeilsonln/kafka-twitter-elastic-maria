@@ -3,6 +3,8 @@ package com.vandeilson.kafka.service;
 import com.twitter.hbc.core.Client;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.BlockingQueue;
@@ -15,23 +17,31 @@ public class TwitterService {
 
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
 
-    public void getRelatedTweets(String keyword) {
+    public void sendRelatedTweets(String keyword, KafkaProducer<String, String> producer) {
 
         Client twitterClient = TwitterClientConfiguration.getTwitterClient(msgQueue, keyword);
         twitterClient.connect();
 
         while (!twitterClient.isDone()) {
-            String msg = null;
+            String msg;
             try {
-                msg = msgQueue.poll(5, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
+                msg = msgQueue.poll(10, TimeUnit.SECONDS);
+                log.info(msg);
+                if (msg != null) producer.send(new ProducerRecord<>("twitter_tweets", null, msg));
+            } catch (Exception e) {
                 log.error(e.getMessage());
                 twitterClient.stop();
             }
-            if (msg != null) {
-                log.info(msg);
-            }
         }
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Stopping application...");
+            log.info("Shutting dows twitter client...");
+            twitterClient.stop();
+            log.info("Closing producer...");
+            producer.close();
+            log.info("Done!");
+        }));
     }
 
 }
