@@ -24,6 +24,8 @@ public class Producers {
         properties.setProperty(ProducerConfig.RETRIES_CONFIG, String.valueOf(Integer.MAX_VALUE));
         properties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
 
+        properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
+
         return new KafkaProducer<>(properties);
     }
 
