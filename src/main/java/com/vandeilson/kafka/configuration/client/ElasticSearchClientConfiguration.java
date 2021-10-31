@@ -13,12 +13,13 @@ public class ElasticSearchClientConfiguration {
 
     private ElasticSearchClientConfiguration() {}
 
-    private static final String HOSTNAME = "";
-    private static final int PORT = 0;
-    private static final String USERNAME = "";
-    private static final String PASSWORD = "";
+    // Replace with your own credentials
+    private static final String HOSTNAME = "kafka-course-705596321.us-east-1.bonsaisearch.net";
+    private static final int PORT = 443;
+    private static final String USERNAME = "ial8hxadec";
+    private static final String PASSWORD = "hzyncr12p6";
 
-    public static RestHighLevelClient createClient() {
+    public static RestHighLevelClient getClient() {
 
         final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(
