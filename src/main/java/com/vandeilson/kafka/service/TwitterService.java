@@ -1,5 +1,6 @@
 package com.vandeilson.kafka.service;
 
+import com.google.gson.JsonParser;
 import com.twitter.hbc.core.Client;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
 import com.vandeilson.kafka.configuration.kafka.Consumers;
@@ -18,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 public class TwitterService {
 
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
+    private final JsonParser jsonParser = new JsonParser();
 
     public void sendRelatedTweets(String keyword, KafkaProducer<String, String> producer) {
 
@@ -47,6 +49,15 @@ public class TwitterService {
     }
 
     public void sendToElasticSearch(KafkaConsumer<String, String> consumers) {
+
+    }
+
+    public String extractTwitterId(final String tweetJson) {
+        // gson library
+        return jsonParser.parse(tweetJson)
+            .getAsJsonObject()
+            .get("id_str")
+        .getAsString();
 
     }
 
