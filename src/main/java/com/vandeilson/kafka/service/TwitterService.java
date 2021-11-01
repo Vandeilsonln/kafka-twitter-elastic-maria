@@ -11,6 +11,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -67,27 +69,33 @@ public class TwitterService {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
                 log.info("Received: " + records.count() + " records");
 
+                BulkRequest bulkRequest = new BulkRequest();
+
                 for (ConsumerRecord<String, String> i : records) {
 
                     // --- Kafka Generic ID ---
                     // String id = record.topic() + "_" + record.partition() + "_" + record.offset();
 
                     // --- Twitter Feed Id ---
-                    String twitterId = extractTwitterId(i.value());
+                    try {
+                        String twitterId = extractTwitterId(i.value());
 
-                    String jsonRecord = i.value();
-                    IndexRequest indexRequest = new IndexRequest("twitter", "tweets", twitterId)
-                        .source(jsonRecord, XContentType.JSON);
+                        String jsonRecord = i.value();
+                        IndexRequest indexRequest = new IndexRequest("twitter", "tweets", twitterId)
+                            .source(jsonRecord, XContentType.JSON);
 
-                    IndexResponse indexResponse = esClient.index(indexRequest, RequestOptions.DEFAULT);
-                    log.info(indexResponse.getId());
-                    Thread.sleep(1000);
+                        bulkRequest.add(indexRequest);
+                    } catch (NullPointerException e) {
+                        log.warn("Skipped bad data: " + i.value());
+                    }
                 }
-
-                log.info("Commiting Offseets...");
-                Thread.sleep(1000);
-                consumer.commitSync();
-                log.info("Offsets have been committed.");
+                if (records.count() > 0) {
+                    BulkResponse bulkItemResponses = esClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+                    log.info("Commiting Offseets...");
+                    Thread.sleep(1000);
+                    consumer.commitSync();
+                    log.info("Offsets have been committed.");
+                }
 
             } catch (Exception e) {
                 log.error("There was a problem");
