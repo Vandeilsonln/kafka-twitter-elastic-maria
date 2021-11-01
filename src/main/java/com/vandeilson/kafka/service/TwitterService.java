@@ -2,14 +2,24 @@ package com.vandeilson.kafka.service;
 
 import com.google.gson.JsonParser;
 import com.twitter.hbc.core.Client;
+import com.vandeilson.kafka.configuration.client.ElasticSearchClientConfiguration;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
 import com.vandeilson.kafka.configuration.kafka.Consumers;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -48,11 +58,37 @@ public class TwitterService {
         }));
     }
 
-    public void sendToElasticSearch(KafkaConsumer<String, String> consumers) {
+    public void sendToElasticSearch(KafkaConsumer<String, String> consumer) {
 
+        RestHighLevelClient esClient = ElasticSearchClientConfiguration.getClient();
+
+        while(true) {
+            try {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+
+                for (ConsumerRecord<String, String> i : records) {
+
+                    // --- Kafka Generic ID ---
+                    // String id = record.topic() + "_" + record.partition() + "_" + record.offset();
+
+                    // --- Twitter Feed Id ---
+                    String twitterId = extractTwitterId(i.value());
+
+                    String jsonRecord = i.value();
+                    IndexRequest indexRequest = new IndexRequest("twitter", "tweets", twitterId)
+                        .source(jsonRecord, XContentType.JSON);
+
+                    IndexResponse indexResponse = esClient.index(indexRequest, RequestOptions.DEFAULT);
+                    log.info(indexResponse.getId());
+                }
+            } catch (Exception e) {
+                log.error("There was a problem");
+                log.error(e.getMessage());
+            }
+        }
     }
 
-    public String extractTwitterId(final String tweetJson) {
+    private String extractTwitterId(final String tweetJson) {
         // gson library
         return jsonParser.parse(tweetJson)
             .getAsJsonObject()
