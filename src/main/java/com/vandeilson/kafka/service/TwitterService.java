@@ -60,7 +60,7 @@ public class TwitterService {
         }));
     }
 
-    public void sendToElasticSearch(KafkaConsumer<String, String> consumer) throws InterruptedException {
+    public void sendToElasticSearch(KafkaConsumer<String, String> consumer) {
 
         RestHighLevelClient esClient = ElasticSearchClientConfiguration.getClient();
 
@@ -68,41 +68,47 @@ public class TwitterService {
             try {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
                 log.info("Received: " + records.count() + " records");
+                BulkRequest bulkRequest = fillBulkBatch(records);
 
-                BulkRequest bulkRequest = new BulkRequest();
-
-                for (ConsumerRecord<String, String> i : records) {
-
-                    // --- Kafka Generic ID ---
-                    // String id = record.topic() + "_" + record.partition() + "_" + record.offset();
-
-                    // --- Twitter Feed Id ---
-                    try {
-                        String twitterId = extractTwitterId(i.value());
-
-                        String jsonRecord = i.value();
-                        IndexRequest indexRequest = new IndexRequest("twitter", "tweets", twitterId)
-                            .source(jsonRecord, XContentType.JSON);
-
-                        bulkRequest.add(indexRequest);
-                    } catch (NullPointerException e) {
-                        log.warn("Skipped bad data: " + i.value());
-                    }
-                }
                 if (records.count() > 0) {
-                    BulkResponse bulkItemResponses = esClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+                    esClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+
                     log.info("Commiting Offseets...");
-                    Thread.sleep(1000);
                     consumer.commitSync();
                     log.info("Offsets have been committed.");
                 }
 
             } catch (Exception e) {
-                log.error("There was a problem");
+                log.error("There was a problem: ");
                 log.error(e.getMessage());
             }
 
         }
+    }
+
+    private BulkRequest fillBulkBatch(final ConsumerRecords<String, String> records) {
+        BulkRequest bulkRequest = new BulkRequest();
+
+        for (ConsumerRecord<String, String> i : records) {
+
+            // --- Kafka Generic ID ---
+            // String id = record.topic() + "_" + record.partition() + "_" + record.offset();
+
+            // --- Twitter Feed Id ---
+            try {
+                String jsonRecord = i.value();
+                String twitterId = extractTwitterId(jsonRecord);
+
+                IndexRequest indexRequest = new IndexRequest("twitter", "tweets", twitterId)
+                    .source(jsonRecord, XContentType.JSON);
+
+                bulkRequest.add(indexRequest);
+            } catch (NullPointerException e) {
+                log.warn("Skipped bad data: " + i.value());
+            }
+        }
+
+        return bulkRequest;
     }
 
     private String extractTwitterId(final String tweetJson) {
