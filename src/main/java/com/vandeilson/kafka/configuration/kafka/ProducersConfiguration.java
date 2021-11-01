@@ -6,9 +6,9 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.util.Properties;
 
-public class Producers {
+public class ProducersConfiguration {
 
-    private Producers() {}
+    private ProducersConfiguration() {}
 
     private static final String BOOTSTRAP_SERVER = "localhost:9091";
 
@@ -32,5 +32,4 @@ public class Producers {
 
         return new KafkaProducer<>(properties);
     }
-
 }

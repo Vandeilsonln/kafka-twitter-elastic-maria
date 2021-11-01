@@ -1,6 +1,6 @@
 package com.vandeilson.kafka.controller;
 
-import com.vandeilson.kafka.configuration.kafka.Consumers;
+import com.vandeilson.kafka.configuration.kafka.ConsumersConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collections;
 
 @Controller
@@ -40,7 +39,7 @@ public class ConsumerController {
     @GetMapping("/groups/as")
     public void consumerGroups() {
 
-        KafkaConsumer<String, String> consumer = Consumers.getAssignAndSeekConsumer();
+        KafkaConsumer<String, String> consumer = ConsumersConfiguration.getAssignAndSeekConsumer();
 
         // assign and seek are mostly used to replay data or fetch a specific message
         TopicPartition partitionToReadFrom = new TopicPartition("first_topic", 0);

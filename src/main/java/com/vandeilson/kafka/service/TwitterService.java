@@ -4,24 +4,25 @@ import com.google.gson.JsonParser;
 import com.twitter.hbc.core.Client;
 import com.vandeilson.kafka.configuration.client.ElasticSearchClientConfiguration;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
-import com.vandeilson.kafka.configuration.kafka.Consumers;
+import com.vandeilson.kafka.configuration.kafka.KafkaStreamsConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.streams.KafkaStreams;
+import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.kstream.KStream;
 import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.time.Duration;
+import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +34,7 @@ public class TwitterService {
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
     private final JsonParser jsonParser = new JsonParser();
 
-    public void sendRelatedTweets(String keyword, KafkaProducer<String, String> producer) {
+    public void getRelatedTweets(String keyword, KafkaProducer<String, String> producer) {
 
         Client twitterClient = TwitterClientConfiguration.getTwitterClient(msgQueue, keyword);
         twitterClient.connect();
@@ -77,13 +78,29 @@ public class TwitterService {
                     consumer.commitSync();
                     log.info("Offsets have been committed.");
                 }
-
             } catch (Exception e) {
                 log.error("There was a problem: ");
                 log.error(e.getMessage());
             }
-
         }
+    }
+
+    public void startKafkaStream() {
+        Properties properties = KafkaStreamsConfiguration.getStreamsProperties();
+
+        // create a topology
+        StreamsBuilder builder = new StreamsBuilder();
+
+        // input topic
+        KStream<String, String> inputTopic = builder.stream("twitter_tweets");
+        KStream<String, String> filteredStream = inputTopic.filter((k, v) -> extractUserFollowers(v) > 10000);
+        filteredStream.to("important_tweets");
+
+        // build the topology
+        KafkaStreams kafkaStreams = new KafkaStreams(builder.build(), properties);
+
+        // start our streams applications
+        kafkaStreams.start();
     }
 
     private BulkRequest fillBulkBatch(final ConsumerRecords<String, String> records) {
@@ -107,7 +124,6 @@ public class TwitterService {
                 log.warn("Skipped bad data: " + i.value());
             }
         }
-
         return bulkRequest;
     }
 
@@ -117,10 +133,9 @@ public class TwitterService {
             .getAsJsonObject()
             .get("id_str")
         .getAsString();
-
     }
 
-    public int extractUserFollowers(final String tweetJson) {
+    private int extractUserFollowers(final String tweetJson) {
         // gson library
         try {
             return jsonParser.parse(tweetJson)
@@ -132,8 +147,5 @@ public class TwitterService {
         } catch (Exception e) {
             return 0;
         }
-
-
     }
-
 }

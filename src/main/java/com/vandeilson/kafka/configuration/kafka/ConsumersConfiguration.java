@@ -7,9 +7,9 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import java.util.Collections;
 import java.util.Properties;
 
-public class Consumers {
+public class ConsumersConfiguration {
 
-    private Consumers () {}
+    private ConsumersConfiguration() {}
 
     private static final String BOOTSTRAP_SERVERS = "localhost:9091";
     private static final String GROUP_ID = "kafka-demo-elasticsearch";
@@ -40,5 +40,4 @@ public class Consumers {
 
         return new KafkaConsumer<>(properties);
     }
-
 }
