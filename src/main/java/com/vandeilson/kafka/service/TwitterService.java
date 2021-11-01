@@ -120,4 +120,20 @@ public class TwitterService {
 
     }
 
+    public int extractUserFollowers(final String tweetJson) {
+        // gson library
+        try {
+            return jsonParser.parse(tweetJson)
+                .getAsJsonObject()
+                .get("user")
+                .getAsJsonObject()
+                .get("followers_count")
+                .getAsInt();
+        } catch (Exception e) {
+            return 0;
+        }
+
+
+    }
+
 }
