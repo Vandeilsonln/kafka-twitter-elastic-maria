@@ -2,7 +2,9 @@ package com.vandeilson.kafka.service;
 
 import com.twitter.hbc.core.Client;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
+import com.vandeilson.kafka.configuration.kafka.Consumers;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,10 @@ public class TwitterService {
             producer.close();
             log.info("Done!");
         }));
+    }
+
+    public void sendToElasticSearch(KafkaConsumer<String, String> consumers) {
+
     }
 
 }

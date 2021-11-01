@@ -19,23 +19,23 @@ import java.util.Collections;
 @RequestMapping("/consumer")
 public class ConsumerController {
 
-    @GetMapping
-    public void standardConsumer() {
-
-        KafkaConsumer<String, String> consumer = Consumers.getStandardConsumer();
-
-        consumer.subscribe(Collections.singleton("first_topic"));
-
-        while(true) {
-            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-
-            for (ConsumerRecord<String, String> record : records) {
-                log.info("Key:" + record.key() + "\tValue: " + record.value());
-                log.info("Partition: " + record.partition() + "\tOffset: " + record.offset());
-            }
-        }
-
-    }
+//    @GetMapping
+//    public void standardConsumer() {
+//
+//        KafkaConsumer<String, String> consumer = Consumers.getStandardConsumer();
+//
+//        consumer.subscribe(Collections.singleton("first_topic"));
+//
+//        while(true) {
+//            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+//
+//            for (ConsumerRecord<String, String> record : records) {
+//                log.info("Key:" + record.key() + "\tValue: " + record.value());
+//                log.info("Partition: " + record.partition() + "\tOffset: " + record.offset());
+//            }
+//        }
+//
+//    }
 
     @GetMapping("/groups/as")
     public void consumerGroups() {

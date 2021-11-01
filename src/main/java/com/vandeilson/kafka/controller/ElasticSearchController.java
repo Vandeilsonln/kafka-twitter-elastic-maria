@@ -1,7 +1,11 @@
 package com.vandeilson.kafka.controller;
 
 import com.vandeilson.kafka.configuration.client.ElasticSearchClientConfiguration;
+import com.vandeilson.kafka.configuration.kafka.Consumers;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -12,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.time.Duration;
 
 @RestController
 @RequestMapping("/es")
@@ -19,20 +24,27 @@ import java.io.IOException;
 public class ElasticSearchController {
 
     @GetMapping
-    public void createElastic() throws IOException {
+    public void sendDataToElasticSearch() throws IOException, InterruptedException {
         RestHighLevelClient esClient = ElasticSearchClientConfiguration.getClient();
+        KafkaConsumer<String, String> consumer = Consumers.getStandardConsumer("twitter_tweets");
 
-        String exampleJson = "{ \"foo\": \"bar\" }";
+        while(true) {
+            try {
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
 
-        IndexRequest indexRequest = new IndexRequest("twitter", "tweets")
-            .source(exampleJson, XContentType.JSON);
+            for (ConsumerRecord<String, String> record : records) {
+                String jsonRecord = record.value();
 
-        IndexResponse indexResponse = esClient.index(indexRequest, RequestOptions.DEFAULT);
-        String id = indexResponse.getId();
+                IndexRequest indexRequest = new IndexRequest("twitter", "tweets")
+                    .source(jsonRecord, XContentType.JSON);
 
-        log.info(id);
-
-        esClient.close();
+                IndexResponse indexResponse = esClient.index(indexRequest, RequestOptions.DEFAULT);
+                String id = indexResponse.getId();
+                log.info(id);
+            }
+        } catch (Exception e) {
+                log.error("There was a problem");
+            }
+        }
     }
-
 }
