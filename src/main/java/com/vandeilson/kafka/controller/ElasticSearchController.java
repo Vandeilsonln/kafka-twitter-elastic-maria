@@ -16,7 +16,7 @@ public class ElasticSearchController {
     TwitterService twitterService;
 
     @GetMapping
-    public void sendDataToElasticSearch() {
+    public void sendDataToElasticSearch() throws InterruptedException {
         twitterService.sendToElasticSearch(Consumers.getStandardConsumer("twitter_tweets"));
     }
 }

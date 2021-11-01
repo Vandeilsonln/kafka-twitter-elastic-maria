@@ -58,13 +58,14 @@ public class TwitterService {
         }));
     }
 
-    public void sendToElasticSearch(KafkaConsumer<String, String> consumer) {
+    public void sendToElasticSearch(KafkaConsumer<String, String> consumer) throws InterruptedException {
 
         RestHighLevelClient esClient = ElasticSearchClientConfiguration.getClient();
 
         while(true) {
             try {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+                log.info("Received: " + records.count() + " records");
 
                 for (ConsumerRecord<String, String> i : records) {
 
@@ -80,11 +81,19 @@ public class TwitterService {
 
                     IndexResponse indexResponse = esClient.index(indexRequest, RequestOptions.DEFAULT);
                     log.info(indexResponse.getId());
+                    Thread.sleep(1000);
                 }
+
+                log.info("Commiting Offseets...");
+                Thread.sleep(1000);
+                consumer.commitSync();
+                log.info("Offsets have been committed.");
+
             } catch (Exception e) {
                 log.error("There was a problem");
                 log.error(e.getMessage());
             }
+
         }
     }
 
