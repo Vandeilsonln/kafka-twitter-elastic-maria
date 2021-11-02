@@ -1,6 +1,6 @@
 spring:
     datasource:
-        url: jdbc:mysql://${DATABASE_HOST}:${DATABAE_PORT}/${DATABASE_NAME}?createDatabaseIfNotExist=true&serverTimeZone=UTC
+        url: jdbc:mysql://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}?createDatabaseIfNotExist=true&serverTimeZone=UTC
         username: ${DATABASE_USERNAME}
         password: ${DATABASE_PASSWORD}
     jpa:
