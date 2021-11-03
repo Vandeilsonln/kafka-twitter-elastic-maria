@@ -5,7 +5,7 @@ services:
         build: .
         environment:
             KAFKACOURSE_DATABASE_HOST: mariadb.kafkacourse
-            KAFKACOURSE_KAFKA_URI: kafka.kafkacourse:9092
+            KAFKACOURSE_KAFKA_URI: kafka.kafkacourse:9091
         ports:
             -   "8080:8080"
         networks:

@@ -33,14 +33,17 @@ import java.util.concurrent.TimeUnit;
 public class TwitterService {
 
     @Autowired
-    TwitterClientConfiguration twitterClientConfiguration;
+    TwitterClientConfiguration twitter;
+
+    @Autowired
+    ElasticSearchClientConfiguration elasticSearch;
 
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
     private final JsonParser jsonParser = new JsonParser();
 
     public void getRelatedTweets(String keyword, KafkaProducer<String, String> producer) {
 
-        Client twitterClient = twitterClientConfiguration.getTwitterClient(msgQueue, keyword);
+        Client twitterClient = twitter.getTwitterClient(msgQueue, keyword);
         twitterClient.connect();
 
         while (!twitterClient.isDone()) {
@@ -67,7 +70,7 @@ public class TwitterService {
 
     public void sendToElasticSearch(KafkaConsumer<String, String> consumer) {
 
-        RestHighLevelClient esClient = ElasticSearchClientConfiguration.getClient();
+        RestHighLevelClient esClient = elasticSearch.getClient();
 
         while(true) {
             try {

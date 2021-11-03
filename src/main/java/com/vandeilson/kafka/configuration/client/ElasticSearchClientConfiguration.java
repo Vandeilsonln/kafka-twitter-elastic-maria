@@ -8,18 +8,27 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ElasticSearchClientConfiguration {
 
     private ElasticSearchClientConfiguration() {}
 
-    // Replace with your own credentials
-    private static final String HOSTNAME = "kafka-course-705596321.us-east-1.bonsaisearch.net";
-    private static final int PORT = 443;
-    private static final String USERNAME = "ial8hxadec";
-    private static final String PASSWORD = "hzyncr12p6";
+    @Value("${elastic.hostname}")
+    private String HOSTNAME = "kafka-course-705596321.us-east-1.bonsaisearch.net";
 
-    public static RestHighLevelClient getClient() {
+    @Value("${elastic.port}")
+    private int PORT = 443;
+
+    @Value("${elastic.username}")
+    private String USERNAME = "ial8hxadec";
+
+    @Value("${elastic.password}")
+    private String PASSWORD = "hzyncr12p6";
+
+    public RestHighLevelClient getClient() {
 
         final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(
