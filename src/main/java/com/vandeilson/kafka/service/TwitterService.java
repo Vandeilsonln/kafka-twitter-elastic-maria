@@ -19,6 +19,7 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -31,12 +32,15 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class TwitterService {
 
+    @Autowired
+    TwitterClientConfiguration twitterClientConfiguration;
+
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
     private final JsonParser jsonParser = new JsonParser();
 
     public void getRelatedTweets(String keyword, KafkaProducer<String, String> producer) {
 
-        Client twitterClient = TwitterClientConfiguration.getTwitterClient(msgQueue, keyword);
+        Client twitterClient = twitterClientConfiguration.getTwitterClient(msgQueue, keyword);
         twitterClient.connect();
 
         while (!twitterClient.isDone()) {
