@@ -28,10 +28,10 @@ kafka:
         enable.auto-commit: false
         max.poll.records: 200
     producer:
-        enable.idempotence: true
+        enable-idempotence: true
         acks: all
         max.in-flight.requests-per-connection: 5
-        compression.type: snappy
+        compression-type: snappy
         linger.ms: 20
     streams:
         application-id: ${KAFKA_STREAMS_APPLICATION_ID}

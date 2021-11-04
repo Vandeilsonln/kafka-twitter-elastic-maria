@@ -20,11 +20,35 @@ public class KafkaGeneralConfigurations {
     @Value(value = "${kafka.bootstrap-server}")
     private String bootstrapServer;
 
+    @Value(value = "${kafka.streams.application-id}")
+    private String applicationId;
+
+    @Value(value = "${kafka.producer.enable-idempotence}")
+    private String enableIdempotence;
+
+    @Value(value = "${kafka.producer.acks}")
+    private String acks;
+
+    @Value(value = "${kafka.producer.max.in-flight.requests-per-connection}")
+    private String maxRequestsPerConnection;
+
+    @Value(value = "${kafka.producer.compression-type}")
+    private String compressionType;
+
+    @Value(value = "${kafka.producer.linger.ms}")
+    private String linger;
+
     @Value(value = "${kafka.consumer.group-id}")
     private String groupId;
 
-    @Value(value = "${kafka.streams.application-id}")
-    private String applicationId;
+    @Value(value = "${kafka.consumer.auto-offset.reset}")
+    private String autoOffsetReset;
+
+    @Value(value = "${kafka.consumer.enable.auto-commit}")
+    private String enableAutoCommit;
+
+    @Value(value = "${kafka.consumer.max.poll.records}")
+    private String maxPollRecords;
 
     public KafkaProducer<String, String> getProducer() {
         Properties properties = new Properties();
@@ -34,14 +58,14 @@ public class KafkaGeneralConfigurations {
         properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
         // safe producer (idempotent)
-        properties.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
-        properties.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+        properties.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, enableIdempotence);
+        properties.setProperty(ProducerConfig.ACKS_CONFIG, acks);
         properties.setProperty(ProducerConfig.RETRIES_CONFIG, String.valueOf(Integer.MAX_VALUE));
-        properties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
+        properties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, maxRequestsPerConnection);
 
         // high throughout producer (at the expense of a bit of latency and cpu usage)
-        properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
-        properties.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
+        properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, compressionType);
+        properties.setProperty(ProducerConfig.LINGER_MS_CONFIG, linger);
         properties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32 * 1024));
 
         return new KafkaProducer<>(properties);
@@ -54,9 +78,9 @@ public class KafkaGeneralConfigurations {
         properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false"); // disable auto commit of offsets
-        properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "200");
+        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
+        properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableAutoCommit);
+        properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, maxPollRecords);
 
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties);
         consumer.subscribe(Collections.singletonList(topic));

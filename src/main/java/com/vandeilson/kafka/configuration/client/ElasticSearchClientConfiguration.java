@@ -17,16 +17,16 @@ public class ElasticSearchClientConfiguration {
     private ElasticSearchClientConfiguration() {}
 
     @Value("${elastic.hostname}")
-    private String HOSTNAME = "kafka-course-705596321.us-east-1.bonsaisearch.net";
+    private String HOSTNAME;
 
     @Value("${elastic.port}")
-    private int PORT = 443;
+    private int PORT;
 
     @Value("${elastic.username}")
-    private String USERNAME = "ial8hxadec";
+    private String USERNAME;
 
     @Value("${elastic.password}")
-    private String PASSWORD = "hzyncr12p6";
+    private String PASSWORD;
 
     public RestHighLevelClient getClient() {
 
