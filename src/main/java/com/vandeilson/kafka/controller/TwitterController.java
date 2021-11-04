@@ -1,6 +1,5 @@
 package com.vandeilson.kafka.controller;
 
-import com.vandeilson.kafka.configuration.kafka.ProducersConfiguration;
 import com.vandeilson.kafka.service.TwitterService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +17,7 @@ public class TwitterController {
 
     @GetMapping("/{keyword}")
     public void produceTweets(@PathVariable String keyword) {
-        twitterService.getRelatedTweets(keyword, ProducersConfiguration.getProducer());
+        twitterService.getRelatedTweets(keyword);
     }
 
     @GetMapping("/stream")

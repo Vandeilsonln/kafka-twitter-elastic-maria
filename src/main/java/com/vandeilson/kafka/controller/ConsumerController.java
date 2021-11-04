@@ -1,6 +1,6 @@
 package com.vandeilson.kafka.controller;
 
-import com.vandeilson.kafka.configuration.kafka.ConsumersConfiguration;
+import com.vandeilson.kafka.configuration.kafka.KafkaGeneralConfigurations;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -39,7 +39,7 @@ public class ConsumerController {
     @GetMapping("/groups/as")
     public void consumerGroups() {
 
-        KafkaConsumer<String, String> consumer = ConsumersConfiguration.getAssignAndSeekConsumer();
+        KafkaConsumer<String, String> consumer = new KafkaGeneralConfigurations().getStandardConsumer("first_topic");
 
         // assign and seek are mostly used to replay data or fetch a specific message
         TopicPartition partitionToReadFrom = new TopicPartition("first_topic", 0);

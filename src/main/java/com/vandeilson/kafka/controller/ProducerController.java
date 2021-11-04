@@ -1,6 +1,6 @@
 package com.vandeilson.kafka.controller;
 
-import com.vandeilson.kafka.configuration.kafka.ProducersConfiguration;
+import com.vandeilson.kafka.configuration.kafka.KafkaGeneralConfigurations;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -18,7 +18,7 @@ public class ProducerController {
 
     @GetMapping
     public String getHelloWorld() {
-        KafkaProducer<String, String> producer = ProducersConfiguration.getProducer();
+        KafkaProducer<String, String> producer = new KafkaGeneralConfigurations().getProducer();
 
         for (int i = 0; i <= 1; i++) {
             ProducerRecord<String, String> producerRecord = new ProducerRecord<>("first_topic", Integer.toString(i));
@@ -45,7 +45,7 @@ public class ProducerController {
 
     @GetMapping("/keys")
     public String producerWithKeys() throws ExecutionException, InterruptedException {
-        KafkaProducer<String, String> producer = ProducersConfiguration.getProducer();
+        KafkaProducer<String, String> producer = new KafkaGeneralConfigurations().getProducer();
 
         for (int i = 0; i <= 10; i++) {
             String value = Integer.toString(i);

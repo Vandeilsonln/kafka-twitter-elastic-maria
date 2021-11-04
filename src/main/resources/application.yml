@@ -34,4 +34,4 @@ kafka:
         compression.type: snappy
         linger.ms: 20
     streams:
-        application.id: ${KAFKA_STREAMS_APPLICATION_ID}
+        application-id: ${KAFKA_STREAMS_APPLICATION_ID}

@@ -1,6 +1,5 @@
 package com.vandeilson.kafka.controller;
 
-import com.vandeilson.kafka.configuration.kafka.ConsumersConfiguration;
 import com.vandeilson.kafka.service.TwitterService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +15,7 @@ public class ElasticSearchController {
     TwitterService twitterService;
 
     @GetMapping
-    public void sendDataToElasticSearch() throws InterruptedException {
-        twitterService.sendToElasticSearch(ConsumersConfiguration.getStandardConsumer("twitter_tweets"));
+    public void sendDataToElasticSearch() {
+        twitterService.sendToElasticSearch("twitter_tweets");
     }
 }

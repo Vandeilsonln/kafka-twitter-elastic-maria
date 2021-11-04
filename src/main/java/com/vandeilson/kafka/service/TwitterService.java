@@ -4,7 +4,7 @@ import com.google.gson.JsonParser;
 import com.twitter.hbc.core.Client;
 import com.vandeilson.kafka.configuration.client.ElasticSearchClientConfiguration;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
-import com.vandeilson.kafka.configuration.kafka.KafkaStreamsConfiguration;
+import com.vandeilson.kafka.configuration.kafka.KafkaGeneralConfigurations;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -38,10 +38,15 @@ public class TwitterService {
     @Autowired
     ElasticSearchClientConfiguration elasticSearch;
 
+    @Autowired
+    KafkaGeneralConfigurations kafkaGeneralConfigurations;
+
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
     private final JsonParser jsonParser = new JsonParser();
 
-    public void getRelatedTweets(String keyword, KafkaProducer<String, String> producer) {
+    public void getRelatedTweets(String keyword) {
+
+        KafkaProducer<String, String> kafkaProducer = kafkaGeneralConfigurations.getProducer();
 
         Client twitterClient = twitter.getTwitterClient(msgQueue, keyword);
         twitterClient.connect();
@@ -51,7 +56,7 @@ public class TwitterService {
             try {
                 msg = msgQueue.poll(10, TimeUnit.SECONDS);
                 log.info(msg);
-                if (msg != null) producer.send(new ProducerRecord<>("twitter_tweets", null, msg));
+                if (msg != null) kafkaProducer.send(new ProducerRecord<>("twitter_tweets", null, msg));
             } catch (Exception e) {
                 log.error(e.getMessage());
                 twitterClient.stop();
@@ -63,18 +68,19 @@ public class TwitterService {
             log.info("Shutting dows twitter client...");
             twitterClient.stop();
             log.info("Closing producer...");
-            producer.close();
+            kafkaProducer.close();
             log.info("Done!");
         }));
     }
 
-    public void sendToElasticSearch(KafkaConsumer<String, String> consumer) {
+    public void sendToElasticSearch(String topic) {
 
         RestHighLevelClient esClient = elasticSearch.getClient();
+        KafkaConsumer<String, String> kafkaConsumer = kafkaGeneralConfigurations.getStandardConsumer(topic);
 
         while(true) {
             try {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+                ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofMillis(100));
                 log.info("Received: " + records.count() + " records");
                 BulkRequest bulkRequest = fillBulkBatch(records);
 
@@ -82,7 +88,7 @@ public class TwitterService {
                     esClient.bulk(bulkRequest, RequestOptions.DEFAULT);
 
                     log.info("Commiting Offseets...");
-                    consumer.commitSync();
+                    kafkaConsumer.commitSync();
                     log.info("Offsets have been committed.");
                 }
             } catch (Exception e) {
@@ -93,14 +99,14 @@ public class TwitterService {
     }
 
     public void startKafkaStream() {
-        Properties properties = KafkaStreamsConfiguration.getStreamsProperties();
+        Properties properties = kafkaGeneralConfigurations.getStreamsProperties();
 
         // create a topology
         StreamsBuilder builder = new StreamsBuilder();
 
         // input topic
         KStream<String, String> inputTopic = builder.stream("twitter_tweets");
-        KStream<String, String> filteredStream = inputTopic.filter((k, v) -> extractUserFollowers(v) > 10000);
+        KStream<String, String> filteredStream = inputTopic.filter((k, v) -> extractUserFollowers(v) > 1000);
         filteredStream.to("important_tweets");
 
         // build the topology
