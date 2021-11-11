@@ -1,10 +1,13 @@
 package com.vandeilson.kafka.service;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.twitter.hbc.core.Client;
 import com.vandeilson.kafka.configuration.client.ElasticSearchClientConfiguration;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
 import com.vandeilson.kafka.configuration.kafka.KafkaGeneralConfigurations;
+import com.vandeilson.kafka.model.dtos.TweetDataDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -161,4 +164,45 @@ public class TwitterService {
             return 0;
         }
     }
+
+    public void sendToDB(String keyword) {
+
+        KafkaProducer<String, String> kafkaProducer = kafkaGeneralConfigurations.getProducer();
+
+        Client twitterClient = twitter.getTwitterClient(msgQueue, keyword);
+        twitterClient.connect();
+
+        while (!twitterClient.isDone()) {
+            try {
+                String rawMessage = msgQueue.poll(10, TimeUnit.SECONDS);
+                String messageDTO = convertToDTO(rawMessage);
+
+                log.info(messageDTO);
+                if (messageDTO != null) kafkaProducer.send(new ProducerRecord<>("twitter_tweets", null, messageDTO));
+            } catch (Exception e) {
+                log.error(e.getMessage());
+                twitterClient.stop();
+            }
+        }
+    }
+
+    private String convertToDTO(final String rawMessage) {
+        try {
+            JsonObject baseMessage = jsonParser.parse(rawMessage).getAsJsonObject();
+            TweetDataDTO tweetDataDTO = TweetDataDTO.builder()
+                .userId(baseMessage.get("id_str").getAsString())
+                .screenName(baseMessage.get("screen_name").getAsString())
+                .isVerified(baseMessage.get("verified").getAsBoolean())
+                .followersCount(baseMessage.get("user").getAsJsonObject().get("followers_count").getAsInt())
+                .statusCount(baseMessage.get("user").getAsJsonObject().get("statuses_count").getAsInt())
+                .location(baseMessage.get("user").getAsJsonObject().get("location").getAsString())
+                .build();
+
+            return tweetDataDTO.toString();
+
+        } catch (Exception ex) {
+            throw new JsonParseException("Deu ruim na conversão do payload do twitter para o DTO");
+        }
+    }
+
 }
