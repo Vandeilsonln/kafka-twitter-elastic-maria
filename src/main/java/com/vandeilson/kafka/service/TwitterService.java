@@ -1,5 +1,6 @@
 package com.vandeilson.kafka.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
@@ -46,6 +47,7 @@ public class TwitterService {
 
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
     private final JsonParser jsonParser = new JsonParser();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public void getRelatedTweets(String keyword) {
 
@@ -177,8 +179,7 @@ public class TwitterService {
                 String rawMessage = msgQueue.poll(10, TimeUnit.SECONDS);
                 String messageDTO = convertToDTO(rawMessage);
 
-                log.info(messageDTO);
-                if (messageDTO != null) kafkaProducer.send(new ProducerRecord<>("twitter_tweets", null, messageDTO));
+                if (messageDTO != null) kafkaProducer.send(new ProducerRecord<>("twitter_tweets_db", null, messageDTO));
             } catch (Exception e) {
                 log.error(e.getMessage());
                 twitterClient.stop();
@@ -189,19 +190,20 @@ public class TwitterService {
     private String convertToDTO(final String rawMessage) {
         try {
             JsonObject baseMessage = jsonParser.parse(rawMessage).getAsJsonObject();
+
             TweetDataDTO tweetDataDTO = TweetDataDTO.builder()
                 .userId(baseMessage.get("id_str").getAsString())
-                .screenName(baseMessage.get("screen_name").getAsString())
-                .isVerified(baseMessage.get("verified").getAsBoolean())
+                .screenName(baseMessage.get("user").getAsJsonObject().get("screen_name").getAsString())
+                .isVerified(baseMessage.get("user").getAsJsonObject().get("verified").getAsBoolean())
                 .followersCount(baseMessage.get("user").getAsJsonObject().get("followers_count").getAsInt())
                 .statusCount(baseMessage.get("user").getAsJsonObject().get("statuses_count").getAsInt())
-                .location(baseMessage.get("user").getAsJsonObject().get("location").getAsString())
+                .location(baseMessage.get("user").getAsJsonObject().get("location").toString())
                 .build();
 
-            return tweetDataDTO.toString();
+            return objectMapper.writeValueAsString(tweetDataDTO);
 
         } catch (Exception ex) {
-            throw new JsonParseException("Deu ruim na conversão do payload do twitter para o DTO");
+            throw new JsonParseException("Deu ruim na conversão do payload do twitter para o DTO", ex);
         }
     }
 

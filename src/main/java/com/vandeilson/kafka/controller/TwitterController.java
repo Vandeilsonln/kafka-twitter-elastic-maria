@@ -25,7 +25,7 @@ public class TwitterController {
         twitterService.startKafkaStream();
     }
 
-    @GetMapping("/bd/{keyword}")
+    @GetMapping("/db/{keyword}")
     public void produceToDB(@PathVariable String keyword) {
         twitterService.sendToDB(keyword);
     }
