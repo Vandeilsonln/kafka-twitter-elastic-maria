@@ -8,7 +8,7 @@ import com.twitter.hbc.core.Client;
 import com.vandeilson.kafka.configuration.client.ElasticSearchClientConfiguration;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
 import com.vandeilson.kafka.configuration.kafka.KafkaGeneralConfigurations;
-import com.vandeilson.kafka.model.dtos.TweetDataDTO;
+import com.vandeilson.kafka.model.entity.TweetData;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -167,7 +167,7 @@ public class TwitterService {
         }
     }
 
-    public void sendToDB(String keyword) {
+    public void sendEntityToKafka(String keyword) {
 
         KafkaProducer<String, String> kafkaProducer = kafkaGeneralConfigurations.getProducer();
 
@@ -187,11 +187,23 @@ public class TwitterService {
         }
     }
 
+    public void sendToDataBase() {
+
+        KafkaConsumer<String, String> kafkaConsumer = kafkaGeneralConfigurations.getStandardConsumer("twitter_tweets_db");
+
+        // Pega os dados do kafka
+
+        // Mapeia-os para TweetData
+
+        // Salva no banco de dados
+
+    }
+
     private String convertToDTO(final String rawMessage) {
         try {
             JsonObject baseMessage = jsonParser.parse(rawMessage).getAsJsonObject();
 
-            TweetDataDTO tweetDataDTO = TweetDataDTO.builder()
+            TweetData tweetDataDTO = TweetData.builder()
                 .userId(baseMessage.get("id_str").getAsString())
                 .screenName(baseMessage.get("user").getAsJsonObject().get("screen_name").getAsString())
                 .isVerified(baseMessage.get("user").getAsJsonObject().get("verified").getAsBoolean())
@@ -203,7 +215,7 @@ public class TwitterService {
             return objectMapper.writeValueAsString(tweetDataDTO);
 
         } catch (Exception ex) {
-            throw new JsonParseException("Deu ruim na conversão do payload do twitter para o DTO", ex);
+            throw new JsonParseException("Ocorreu algum problema na conversão do payload do twitter para o DTO", ex);
         }
     }
 

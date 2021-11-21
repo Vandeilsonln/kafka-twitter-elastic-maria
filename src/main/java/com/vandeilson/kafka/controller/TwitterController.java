@@ -27,6 +27,6 @@ public class TwitterController {
 
     @GetMapping("/db/{keyword}")
     public void produceToDB(@PathVariable String keyword) {
-        twitterService.sendToDB(keyword);
+        twitterService.sendEntityToKafka(keyword);
     }
 }
