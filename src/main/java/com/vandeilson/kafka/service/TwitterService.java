@@ -51,7 +51,7 @@ public class TwitterService {
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
     private final ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    public void getRelatedTweets(String keyword) {
+    public void getRelatedTweets(String keyword, String topic) {
 
         KafkaProducer<String, String> kafkaProducer = kafkaGeneralConfigurations.getProducer();
 
@@ -63,7 +63,7 @@ public class TwitterService {
             try {
                 msg = msgQueue.poll(10, TimeUnit.SECONDS);
                 log.info(msg);
-                if (msg != null) kafkaProducer.send(new ProducerRecord<>("twitter_tweets", null, msg));
+                if (msg != null) kafkaProducer.send(new ProducerRecord<>(topic, null, msg));
             } catch (Exception e) {
                 log.error(e.getMessage());
                 twitterClient.stop();
@@ -105,14 +105,14 @@ public class TwitterService {
         }
     }
 
-    public void startKafkaStream() {
+    public void startKafkaStream(String topic) {
         Properties properties = kafkaGeneralConfigurations.getStreamsProperties();
 
         // create a topology
         StreamsBuilder builder = new StreamsBuilder();
 
         // input topic
-        KStream<String, String> inputTopic = builder.stream("twitter_tweets");
+        KStream<String, String> inputTopic = builder.stream(topic);
         KStream<String, String> filteredStream = inputTopic.filter((k, v) -> extractUserFollowers(v) > 1000);
         filteredStream.to("important_tweets");
 
@@ -147,44 +147,8 @@ public class TwitterService {
         return bulkRequest;
     }
 
-    private String extractTwitterId(final String tweetJson) throws JsonProcessingException {
-
-        return objectMapper.readTree(tweetJson)
-            .get("id_str").asText();
-    }
-
-    private int extractUserFollowers(final String tweetJson) {
-        try {
-            return objectMapper.readTree(tweetJson)
-                .get("user").get("follower_count").asInt();
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-
-    public void sendEntityToKafka(String keyword) {
-
-        KafkaProducer<String, String> kafkaProducer = kafkaGeneralConfigurations.getProducer();
-
-        Client twitterClient = twitter.getTwitterClient(msgQueue, keyword);
-        twitterClient.connect();
-
-        while (!twitterClient.isDone()) {
-            try {
-                String rawMessage = msgQueue.poll(2, TimeUnit.SECONDS);
-                if (rawMessage == null) continue;
-
-                kafkaProducer.send(new ProducerRecord<>("twitter_tweets_db", null, rawMessage));
-                log.info("Data was sent");
-                log.info(rawMessage);
-            } catch (Exception e) {
-                log.error(e.getMessage());
-            }
-        }
-    }
-
-    public void sendToDataBase() {
-        KafkaConsumer<String, String> kafkaConsumer = kafkaGeneralConfigurations.getStandardConsumer("twitter_tweets_db");
+    public void sendToDataBase(String topic) {
+        KafkaConsumer<String, String> kafkaConsumer = kafkaGeneralConfigurations.getStandardConsumer(topic);
         while(true) {
             ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofMillis(500));
 
@@ -221,6 +185,21 @@ public class TwitterService {
         } catch (Exception ex) {
             log.error("Ocorreu algum problema na conversão do payload do twitter para o DTO");
             return "";
+        }
+    }
+
+    private String extractTwitterId(final String tweetJson) throws JsonProcessingException {
+
+        return objectMapper.readTree(tweetJson)
+            .get("id_str").asText();
+    }
+
+    private int extractUserFollowers(final String tweetJson) {
+        try {
+            return objectMapper.readTree(tweetJson)
+                .get("user").get("follower_count").asInt();
+        } catch (Exception e) {
+            return 0;
         }
     }
 

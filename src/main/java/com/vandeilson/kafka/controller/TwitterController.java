@@ -1,5 +1,6 @@
 package com.vandeilson.kafka.controller;
 
+import com.vandeilson.kafka.configuration.kafka.Topics;
 import com.vandeilson.kafka.service.TwitterService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,23 +16,28 @@ public class TwitterController {
     @Autowired
     private TwitterService twitterService;
 
-    @GetMapping("/{keyword}")
+    @GetMapping("/produce/es/{keyword}")
     public void produceTweets(@PathVariable String keyword) {
-        twitterService.getRelatedTweets(keyword);
+        twitterService.getRelatedTweets(keyword, Topics.ELASTIC.getTopicName());
     }
 
-    @GetMapping("/stream")
-    public void useKafkaStreams() {
-        twitterService.startKafkaStream();
-    }
-
-    @GetMapping("/db/{keyword}")
+    @GetMapping("produce/db/{keyword}")
     public void produceToDB(@PathVariable String keyword) {
-        twitterService.sendEntityToKafka(keyword);
+        twitterService.getRelatedTweets(keyword, Topics.DATABASE.getTopicName());
+    }
+
+    @GetMapping("/send/es")
+    public void sendDataToElasticSearch() {
+        twitterService.sendToElasticSearch(Topics.ELASTIC.getTopicName());
+    }
+
+    @GetMapping("send/es/stream")
+    public void useKafkaStreams() {
+        twitterService.startKafkaStream(Topics.ELASTIC.getTopicName());
     }
 
     @GetMapping("/send/db")
     public void sendToDB() {
-        twitterService.sendToDataBase();
+        twitterService.sendToDataBase(Topics.DATABASE.getTopicName());
     }
 }
