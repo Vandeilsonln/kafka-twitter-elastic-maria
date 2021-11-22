@@ -2,14 +2,15 @@ package com.vandeilson.kafka.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.twitter.hbc.core.Client;
 import com.vandeilson.kafka.configuration.client.ElasticSearchClientConfiguration;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
 import com.vandeilson.kafka.configuration.kafka.KafkaGeneralConfigurations;
+import com.vandeilson.kafka.configuration.kafka.Topics;
 import com.vandeilson.kafka.model.entity.TweetData;
 import com.vandeilson.kafka.persistence.TweetDataRepository;
+import com.vandeilson.kafka.utils.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -47,6 +48,7 @@ public class TwitterService {
     KafkaGeneralConfigurations kafkaGeneralConfigurations;
 
     @Autowired TweetDataRepository tweetDataRepository;
+    @Autowired JsonConverter jsonConverter;
 
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
     private final ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -114,13 +116,27 @@ public class TwitterService {
         // input topic
         KStream<String, String> inputTopic = builder.stream(topic);
         KStream<String, String> filteredStream = inputTopic.filter((k, v) -> extractUserFollowers(v) > 1000);
-        filteredStream.to("important_tweets");
+        filteredStream.to(Topics.ELASTIC_IMPORTANT.getTopicName());
 
         // build the topology
         KafkaStreams kafkaStreams = new KafkaStreams(builder.build(), properties);
 
         // start our streams applications
         kafkaStreams.start();
+    }
+
+    public void sendToDataBase(String topic) {
+        KafkaConsumer<String, String> kafkaConsumer = kafkaGeneralConfigurations.getStandardConsumer(topic);
+        while(true) {
+            ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofMillis(500));
+
+            for (ConsumerRecord<String, String> myRecord : records) {
+                TweetData tweetObject = jsonConverter.StringToObject(jsonConverter.convertToStringDTO(myRecord.value()), TweetData.class);
+                tweetDataRepository.save(tweetObject);
+                log.info("Deu certo");
+            }
+        }
+
     }
 
     private BulkRequest fillBulkBatch(final ConsumerRecords<String, String> records) {
@@ -130,8 +146,6 @@ public class TwitterService {
 
             // --- Kafka Generic ID ---
             // String id = record.topic() + "_" + record.partition() + "_" + record.offset();
-
-            // --- Twitter Feed Id ---
             try {
                 String jsonRecord = i.value();
                 String twitterId = extractTwitterId(jsonRecord);
@@ -147,46 +161,6 @@ public class TwitterService {
         return bulkRequest;
     }
 
-    public void sendToDataBase(String topic) {
-        KafkaConsumer<String, String> kafkaConsumer = kafkaGeneralConfigurations.getStandardConsumer(topic);
-        while(true) {
-            ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofMillis(500));
-
-            for (ConsumerRecord<String, String> record : records) {
-                try {
-                    String convertedValue = convertToDTO(record.value());
-                    TweetData obj = objectMapper.readValue(convertedValue, TweetData.class);
-                    tweetDataRepository.save(obj);
-                    log.info("Deu certo");
-                } catch (JsonProcessingException e) {
-                    log.error("Deu ruim :(");
-                    e.printStackTrace();
-                }
-            }
-        }
-
-    }
-
-    private String convertToDTO(final String rawMessage) {
-        try {
-            JsonNode baseMessage = objectMapper.readTree(rawMessage);
-
-            TweetData tweetDataDTO = TweetData.builder()
-                .userId(baseMessage.get("id_str").asText())
-                .screenName(baseMessage.get("user").get("screen_name").asText())
-                .isVerified(baseMessage.get("user").get("verified").asBoolean())
-                .followersCount(baseMessage.get("user").get("followers_count").asInt())
-                .statusCount(baseMessage.get("user").get("statuses_count").asInt())
-                .location(baseMessage.get("user").get("location").asText())
-                .build();
-
-            return objectMapper.writeValueAsString(tweetDataDTO);
-
-        } catch (Exception ex) {
-            log.error("Ocorreu algum problema na conversão do payload do twitter para o DTO");
-            return "";
-        }
-    }
 
     private String extractTwitterId(final String tweetJson) throws JsonProcessingException {
 

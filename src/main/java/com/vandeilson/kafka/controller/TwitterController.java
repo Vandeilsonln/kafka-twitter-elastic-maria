@@ -21,7 +21,7 @@ public class TwitterController {
         twitterService.getRelatedTweets(keyword, Topics.ELASTIC.getTopicName());
     }
 
-    @GetMapping("produce/db/{keyword}")
+    @GetMapping("/produce/db/{keyword}")
     public void produceToDB(@PathVariable String keyword) {
         twitterService.getRelatedTweets(keyword, Topics.DATABASE.getTopicName());
     }
@@ -31,7 +31,7 @@ public class TwitterController {
         twitterService.sendToElasticSearch(Topics.ELASTIC.getTopicName());
     }
 
-    @GetMapping("send/es/stream")
+    @GetMapping("/send/es/stream")
     public void useKafkaStreams() {
         twitterService.startKafkaStream(Topics.ELASTIC.getTopicName());
     }
