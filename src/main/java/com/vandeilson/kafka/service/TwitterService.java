@@ -1,14 +1,15 @@
 package com.vandeilson.kafka.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
 import com.twitter.hbc.core.Client;
 import com.vandeilson.kafka.configuration.client.ElasticSearchClientConfiguration;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
 import com.vandeilson.kafka.configuration.kafka.KafkaGeneralConfigurations;
 import com.vandeilson.kafka.model.entity.TweetData;
+import com.vandeilson.kafka.persistence.TweetDataRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -45,9 +46,10 @@ public class TwitterService {
     @Autowired
     KafkaGeneralConfigurations kafkaGeneralConfigurations;
 
+    @Autowired TweetDataRepository tweetDataRepository;
+
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
-    private final JsonParser jsonParser = new JsonParser();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     public void getRelatedTweets(String keyword) {
 
@@ -138,30 +140,23 @@ public class TwitterService {
                     .source(jsonRecord, XContentType.JSON);
 
                 bulkRequest.add(indexRequest);
-            } catch (NullPointerException e) {
+            } catch (NullPointerException | JsonProcessingException e) {
                 log.warn("Skipped bad data: " + i.value());
             }
         }
         return bulkRequest;
     }
 
-    private String extractTwitterId(final String tweetJson) {
-        // gson library
-        return jsonParser.parse(tweetJson)
-            .getAsJsonObject()
-            .get("id_str")
-        .getAsString();
+    private String extractTwitterId(final String tweetJson) throws JsonProcessingException {
+
+        return objectMapper.readTree(tweetJson)
+            .get("id_str").asText();
     }
 
     private int extractUserFollowers(final String tweetJson) {
-        // gson library
         try {
-            return jsonParser.parse(tweetJson)
-                .getAsJsonObject()
-                .get("user")
-                .getAsJsonObject()
-                .get("followers_count")
-                .getAsInt();
+            return objectMapper.readTree(tweetJson)
+                .get("user").get("follower_count").asInt();
         } catch (Exception e) {
             return 0;
         }
@@ -176,46 +171,56 @@ public class TwitterService {
 
         while (!twitterClient.isDone()) {
             try {
-                String rawMessage = msgQueue.poll(10, TimeUnit.SECONDS);
-                String messageDTO = convertToDTO(rawMessage);
+                String rawMessage = msgQueue.poll(2, TimeUnit.SECONDS);
+                if (rawMessage == null) continue;
 
-                if (messageDTO != null) kafkaProducer.send(new ProducerRecord<>("twitter_tweets_db", null, messageDTO));
+                kafkaProducer.send(new ProducerRecord<>("twitter_tweets_db", null, rawMessage));
+                log.info("Data was sent");
+                log.info(rawMessage);
             } catch (Exception e) {
                 log.error(e.getMessage());
-                twitterClient.stop();
             }
         }
     }
 
     public void sendToDataBase() {
-
         KafkaConsumer<String, String> kafkaConsumer = kafkaGeneralConfigurations.getStandardConsumer("twitter_tweets_db");
+        while(true) {
+            ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofMillis(500));
 
-        // Pega os dados do kafka
-
-        // Mapeia-os para TweetData
-
-        // Salva no banco de dados
+            for (ConsumerRecord<String, String> record : records) {
+                try {
+                    String convertedValue = convertToDTO(record.value());
+                    TweetData obj = objectMapper.readValue(convertedValue, TweetData.class);
+                    tweetDataRepository.save(obj);
+                    log.info("Deu certo");
+                } catch (JsonProcessingException e) {
+                    log.error("Deu ruim :(");
+                    e.printStackTrace();
+                }
+            }
+        }
 
     }
 
     private String convertToDTO(final String rawMessage) {
         try {
-            JsonObject baseMessage = jsonParser.parse(rawMessage).getAsJsonObject();
+            JsonNode baseMessage = objectMapper.readTree(rawMessage);
 
             TweetData tweetDataDTO = TweetData.builder()
-                .userId(baseMessage.get("id_str").getAsString())
-                .screenName(baseMessage.get("user").getAsJsonObject().get("screen_name").getAsString())
-                .isVerified(baseMessage.get("user").getAsJsonObject().get("verified").getAsBoolean())
-                .followersCount(baseMessage.get("user").getAsJsonObject().get("followers_count").getAsInt())
-                .statusCount(baseMessage.get("user").getAsJsonObject().get("statuses_count").getAsInt())
-                .location(baseMessage.get("user").getAsJsonObject().get("location").toString())
+                .userId(baseMessage.get("id_str").asText())
+                .screenName(baseMessage.get("user").get("screen_name").asText())
+                .isVerified(baseMessage.get("user").get("verified").asBoolean())
+                .followersCount(baseMessage.get("user").get("followers_count").asInt())
+                .statusCount(baseMessage.get("user").get("statuses_count").asInt())
+                .location(baseMessage.get("user").get("location").asText())
                 .build();
 
             return objectMapper.writeValueAsString(tweetDataDTO);
 
         } catch (Exception ex) {
-            throw new JsonParseException("Ocorreu algum problema na conversão do payload do twitter para o DTO", ex);
+            log.error("Ocorreu algum problema na conversão do payload do twitter para o DTO");
+            return "";
         }
     }
 
