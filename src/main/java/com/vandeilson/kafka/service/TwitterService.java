@@ -29,8 +29,6 @@ public class TwitterService {
     @Autowired TwitterClientConfiguration twitter;
     @Autowired KafkaGeneralConfigurations kafkaGeneralConfigurations;
 
-    @Autowired ConsumeFromKafka consumeFromKafka;
-
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
     private final ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
@@ -63,7 +61,7 @@ public class TwitterService {
         }));
     }
 
-    public void send(String topic) {
+    public void send(String topic, ConsumeFromKafka consumeFromKafka) {
         KafkaConsumer<String, String> kafkaConsumer = kafkaGeneralConfigurations.getStandardConsumer(topic);
         consumeFromKafka.send(topic, kafkaConsumer);
 
