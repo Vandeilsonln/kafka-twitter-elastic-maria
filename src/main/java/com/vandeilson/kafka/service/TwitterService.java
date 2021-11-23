@@ -1,34 +1,22 @@
 package com.vandeilson.kafka.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.twitter.hbc.core.Client;
-import com.vandeilson.kafka.configuration.client.ElasticSearchClientConfiguration;
 import com.vandeilson.kafka.configuration.client.TwitterClientConfiguration;
 import com.vandeilson.kafka.configuration.kafka.KafkaGeneralConfigurations;
 import com.vandeilson.kafka.configuration.kafka.Topics;
-import com.vandeilson.kafka.model.entity.TweetData;
-import com.vandeilson.kafka.persistence.TweetDataRepository;
-import com.vandeilson.kafka.utils.JsonConverter;
+import com.vandeilson.kafka.service.interfaces.ConsumeFromKafka;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -38,17 +26,10 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class TwitterService {
 
-    @Autowired
-    TwitterClientConfiguration twitter;
+    @Autowired TwitterClientConfiguration twitter;
+    @Autowired KafkaGeneralConfigurations kafkaGeneralConfigurations;
 
-    @Autowired
-    ElasticSearchClientConfiguration elasticSearch;
-
-    @Autowired
-    KafkaGeneralConfigurations kafkaGeneralConfigurations;
-
-    @Autowired TweetDataRepository tweetDataRepository;
-    @Autowired JsonConverter jsonConverter;
+    @Autowired ConsumeFromKafka consumeFromKafka;
 
     private final BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(10);
     private final ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -82,29 +63,10 @@ public class TwitterService {
         }));
     }
 
-    public void sendToElasticSearch(String topic) {
-
-        RestHighLevelClient esClient = elasticSearch.getClient();
+    public void send(String topic) {
         KafkaConsumer<String, String> kafkaConsumer = kafkaGeneralConfigurations.getStandardConsumer(topic);
+        consumeFromKafka.send(topic, kafkaConsumer);
 
-        while(true) {
-            try {
-                ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofMillis(100));
-                log.info("Received: " + records.count() + " records");
-                BulkRequest bulkRequest = fillBulkBatch(records);
-
-                if (records.count() > 0) {
-                    esClient.bulk(bulkRequest, RequestOptions.DEFAULT);
-
-                    log.info("Commiting Offseets...");
-                    kafkaConsumer.commitSync();
-                    log.info("Offsets have been committed.");
-                }
-            } catch (Exception e) {
-                log.error("There was a problem: ");
-                log.error(e.getMessage());
-            }
-        }
     }
 
     public void startKafkaStream(String topic) {
@@ -123,49 +85,6 @@ public class TwitterService {
 
         // start our streams applications
         kafkaStreams.start();
-    }
-
-    public void sendToDataBase(String topic) {
-        KafkaConsumer<String, String> kafkaConsumer = kafkaGeneralConfigurations.getStandardConsumer(topic);
-        while(true) {
-            ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofMillis(500));
-
-            for (ConsumerRecord<String, String> myRecord : records) {
-                TweetData tweetObject = jsonConverter.StringToObject(jsonConverter.convertToStringDTO(myRecord.value()), TweetData.class);
-                tweetDataRepository.save(tweetObject);
-                log.info("Deu certo");
-            }
-        }
-
-    }
-
-    private BulkRequest fillBulkBatch(final ConsumerRecords<String, String> records) {
-        BulkRequest bulkRequest = new BulkRequest();
-
-        for (ConsumerRecord<String, String> i : records) {
-
-            // --- Kafka Generic ID ---
-            // String id = record.topic() + "_" + record.partition() + "_" + record.offset();
-            try {
-                String jsonRecord = i.value();
-                String twitterId = extractTwitterId(jsonRecord);
-
-                IndexRequest indexRequest = new IndexRequest("twitter", "tweets", twitterId)
-                    .source(jsonRecord, XContentType.JSON);
-
-                bulkRequest.add(indexRequest);
-            } catch (NullPointerException | JsonProcessingException e) {
-                log.warn("Skipped bad data: " + i.value());
-            }
-        }
-        return bulkRequest;
-    }
-
-
-    private String extractTwitterId(final String tweetJson) throws JsonProcessingException {
-
-        return objectMapper.readTree(tweetJson)
-            .get("id_str").asText();
     }
 
     private int extractUserFollowers(final String tweetJson) {

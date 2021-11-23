@@ -28,7 +28,7 @@ public class TwitterController {
 
     @GetMapping("/send/es")
     public void sendDataToElasticSearch() {
-        twitterService.sendToElasticSearch(Topics.ELASTIC.getTopicName());
+        twitterService.send(Topics.ELASTIC.getTopicName());
     }
 
     @GetMapping("/send/es/stream")
@@ -38,6 +38,6 @@ public class TwitterController {
 
     @GetMapping("/send/db")
     public void sendToDB() {
-        twitterService.sendToDataBase(Topics.DATABASE.getTopicName());
+        twitterService.send(Topics.DATABASE.getTopicName());
     }
 }
